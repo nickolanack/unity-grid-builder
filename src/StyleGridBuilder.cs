@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 
 public class StyleGridBuilder : GridBuilder
@@ -37,9 +38,27 @@ public class StyleGridBuilder : GridBuilder
 
     public bool connected=false;
 
+   
+
     // Start is called before the first frame update
     protected override void Start()
     {
+
+        /*
+
+        var texture = new Texture2D(2, 2, TextureFormat.ARGB32, false);
+ 
+         // set the pixel values
+        texture.SetPixel(0, 0, new Color(1.0f, 1.0f, 1.0f, 0.5f));
+        texture.SetPixel(1, 0, Color.clear);
+        texture.SetPixel(0, 1, Color.white);
+        texture.SetPixel(1, 1, Color.black);
+     
+         // Apply all SetPixel calls
+        texture.Apply();
+        activeMaterial.mainTexture=texture;
+
+        */
         
         onActivate=delegate(GameObject tile, int x, int y){
             tile.GetComponent<Renderer>().material = activeMaterial;
@@ -67,6 +86,8 @@ public class StyleGridBuilder : GridBuilder
 
          onAddEntity=delegate(GameEntity entity, int x, int y){
 
+            Debug.Log("onAddEntity: "+entity.entityId+" > Event:"+(!handlingEvent));
+
             if(!handlingEvent){
 
 
@@ -86,8 +107,10 @@ public class StyleGridBuilder : GridBuilder
                     new JProperty("asset", entity.assetName),
                     new JProperty("id", entity.entityId),
                     new JProperty("position", new JArray(p.x, p.y, p.y)),
-                    new JProperty("rotation", new JArray(r.x, r.y, r.y))
+                    new JProperty("rotation", new JArray(r.x, r.y, r.z))
                 );
+
+                Debug.Log(evt.data.ToString(Formatting.None).Replace("\"", "\\\""));
 
                 sendEventQueue.Enqueue(evt);
 
@@ -100,18 +123,15 @@ public class StyleGridBuilder : GridBuilder
         selectable=Camera.main.gameObject.AddComponent<HighlightSelectable>();
         
 
-        if(applyButton!=null){
-            if(!Input.mousePresent){
-                //in case we need it
-                applyButton.gameObject.SetActive(true);
-            }
-            applyButton.onClick.AddListener(delegate(){
-                ActivateLookingAt();
-            });
-        }
-
 
         base.Start();
+
+
+       taskEventQueueStream.Enqueue(new JToken[]{
+            JToken.Parse("{\"task\":\"create-entity\",\"tile\":[0,0],\"library\":\"cube\",\"asset\":\"assets/cubewhite.prefab\",\"id\":\"cube-01\",\"position\":[1.25895035,2.71713233,2.71713233],\"rotation\":[0.149460062,331.186768,331.186768]}")
+        });
+
+
     }
 
     void Update(){
@@ -140,17 +160,9 @@ public class StyleGridBuilder : GridBuilder
         if(taskEventQueueStream.Count>0){
 
             JToken[] data=taskEventQueueStream.Dequeue();
-            if(data[0]["task"].ToObject<string>().Equals("create-tile")){
-
-                Debug.Log(data[0]["task"]);
-
-                int x=data[0]["tile"][0].ToObject<int>();
-                int y=data[0]["tile"][1].ToObject<int>();
-                handlingEvent=true;
-                Debug.Log("Set active: "+x+", "+y);
-                SetActiveTile(x, y);
-                handlingEvent=false;
-            }
+            handlingEvent=true;
+            HandleEventTask(data[0]["task"].ToObject<string>(), data[0]["tile"][0].ToObject<int>(), data[0]["tile"][1].ToObject<int>(), data[0]);
+            handlingEvent=false;
         }
 
 
@@ -160,27 +172,83 @@ public class StyleGridBuilder : GridBuilder
             lookAt=selectable.lookAt;
             if(lookAt!=null){
                 lookAt.targetFilter=delegate(GameObject obj){
-                    return true;
+                    /**
+                     * Only look at tiles and entities
+                     */
+                    return obj.GetComponent<GameEntity>()!=null||obj.GetComponent<GameTile>()!=null||obj.GetComponent<GameFillerTile>()!=null;
                 };
-            }
+
+                lookAt.targetResolve=delegate(GameObject obj){
+                    if(obj.GetComponent<Terrain>()!=null){
+                        return obj.transform.parent.gameObject;
+                    }
+                    return obj;
+                };
+
+                }
         }
+
+    }
+
+
+
+
+    void HandleEventTask(string task, int x, int y, JToken data){
+
+         Debug.Log(task);
         
-        if(lookAt!=null&&Input.GetMouseButtonDown(0)){
-            ActivateLookingAt();
-        }
-    }
+        if(task.Equals("create-tile")){
 
-    void ActivateLookingAt(){
-        if(lookAt!=null){
-
-            if(ContainsTile(lookAt.lookingAt)){
-                SetActiveTile(lookAt.lookingAt);
-                return;
-            }
+            OnCreateTileEvent(x, y);
 
         }
 
+        if(task.Equals("create-entity")){
+
+            string bundle=data["library"].ToObject<string>();
+            string asset=data["asset"].ToObject<string>();
+
+            AssetLibrary.Library.LoadAsset(bundle, asset, delegate(GameObject asset){
+
+                Debug.Log("Loaded Asset: "+asset);
+                GameObject newAsset=Instantiate(asset);
+                GameEntity entity=newAsset.AddComponent<GameEntity>();
+                
+                Vector3 pos=Vector3.zero;
+                Vector3 rot=Vector3.zero;
+
+                pos.x=data["position"][0].ToObject<float>();
+                pos.y=data["position"][1].ToObject<float>();
+                pos.z=data["position"][2].ToObject<float>();
+
+                rot.x=data["rotation"][0].ToObject<float>();
+                rot.y=data["rotation"][1].ToObject<float>();
+                rot.z=data["rotation"][2].ToObject<float>();
+
+                newAsset.transform.position=pos;
+                newAsset.transform.eulerAngles=rot;
+
+
+                AddEntity(newAsset, x, y);
+
+
+            });
+           
+        }
+
+
     }
+
+
+
+
+    void OnCreateTileEvent(int x, int y){
+        Debug.Log("Set active: "+x+", "+y);
+        SetActiveTile(x, y);
+
+    }
+
+    
 
 
  }

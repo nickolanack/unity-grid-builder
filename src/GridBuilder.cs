@@ -10,18 +10,19 @@ public abstract class GridBuilder : MonoBehaviour
     public static GridBuilder Main;
 
     public GameObject mainTile;
+    public GameObject templateTile;
     public GameObject activeTile=null;
 
 
 
-    public delegate Vector3 GetTilePosition(int x, int y);
-    public GetTilePosition getTilePosition=delegate(int x, int y){
-        return GridBuilder.Main.mainTile.transform.position+new Vector3(10*x, 0, 10*y);
+    protected delegate Vector3 GetTilePosition(int x, int y);
+    protected GetTilePosition getTilePosition=delegate(int x, int y){
+        return GridBuilder.Main.GetTile(0,0).transform.position+new Vector3(10*x, 0, 10*y);
     };
 
 
-    public delegate List<int[]> GetTileNeighbors(int x, int y);
-    public GetTileNeighbors getTileNeighbors=delegate(int x, int y){
+    protected delegate List<int[]> GetTileNeighbors(int x, int y);
+    protected GetTileNeighbors getTileNeighbors=delegate(int x, int y){
 
        List<int[]> list= new List<int[]>(){
             new int[] {x-1, y},
@@ -37,42 +38,49 @@ public abstract class GridBuilder : MonoBehaviour
 
 
     public delegate void EntityEvent(GameEntity tile, int x, int y);
-    public delegate void TilePrepare(GameObject tile, int x, int y);
-    public TilePrepare onActivate=delegate(GameObject tile, int x, int y){
+    public delegate void TileEvent(GameObject tile, int x, int y);
+    
+    protected TileEvent onActivate=delegate(GameObject tile, int x, int y){
 
     };
 
-    public TilePrepare onDeactivate=delegate(GameObject tile, int x, int y){
+    protected TileEvent onDeactivate=delegate(GameObject tile, int x, int y){
 
     };
 
-    public TilePrepare onFill=delegate(GameObject fillerTile, int x, int y){
+    protected TileEvent onFill=delegate(GameObject fillerTile, int x, int y){
 
     };
 
-    public TilePrepare onCommit=delegate(GameObject tile, int x, int y){
-
-    };
-
-
-
-    public EntityEvent onAddEntity=delegate(GameEntity entity, int x, int y){
-
-    };
-
-    public EntityEvent onRemoveEntity=delegate(GameEntity entity, int x, int y){
-
-    };
-
-    public EntityEvent onUpdateEntity=delegate(GameEntity entity, int x, int y){
+    protected TileEvent onCommit=delegate(GameObject tile, int x, int y){
 
     };
 
 
+    List<TileEvent> onActivateTileListeners=new List<TileEvent>();
+    List<TileEvent> onDeactivateTileListeners=new List<TileEvent>();
 
-    public delegate GameObject CreateFillerTile(int x, int y);
-    public CreateFillerTile createFillerTile=delegate(int x, int y){
-        return Instantiate(GridBuilder.Main.mainTile);
+
+
+    protected EntityEvent onAddEntity=delegate(GameEntity entity, int x, int y){
+
+    };
+
+    protected EntityEvent onRemoveEntity=delegate(GameEntity entity, int x, int y){
+
+    };
+
+    protected EntityEvent onUpdateEntity=delegate(GameEntity entity, int x, int y){
+
+    };
+
+
+
+    protected delegate GameObject CreateFillerTile(int x, int y);
+    protected CreateFillerTile createFillerTile=delegate(int x, int y){
+        GameObject tile = Instantiate(GridBuilder.Main.templateTile);
+        tile.SetActive(true);
+        return tile;
     };
 
 
@@ -85,6 +93,15 @@ public abstract class GridBuilder : MonoBehaviour
     {
 
         GridBuilder.Main=this;
+        templateTile=Instantiate(mainTile, transform);
+        templateTile.name="Template Tile";
+
+        Terrain[] terrain=templateTile.GetComponentsInChildren<Terrain>();
+        foreach(Terrain t in terrain){
+            Destroy(t.gameObject);
+        }
+
+        templateTile.SetActive(false);
         AddTile(0,0, mainTile);
         SetActiveTile(0,0);
 
@@ -98,10 +115,19 @@ public abstract class GridBuilder : MonoBehaviour
         }
 
         GameObject tile=GetTile(x,y);
-        GameObjectEntityList list=tile.GetComponent<GameObjectEntityList>();
+        GameTile list=tile.GetComponent<GameTile>();
         Debug.Log("Add Entity: "+entity.entityId);
         list.AddEntity(obj);
 
+    }
+
+
+    public void OnActivateTile(TileEvent listener){
+        onActivateTileListeners.Add(listener);
+    }
+
+    public void OnDeactivateTile(TileEvent listener){
+        onDeactivateTileListeners.Add(listener);
     }
 
 
@@ -110,10 +136,17 @@ public abstract class GridBuilder : MonoBehaviour
         Debug.Log("Add Tile: "+x+" "+y);
 
         grid.Add(new KeyValuePair<int, int>(x,y), tile);
-        GameObjectEntityList list=tile.GetComponent<GameObjectEntityList>();
+        GameTile list=tile.GetComponent<GameTile>();
         if(list==null){
-            list=tile.AddComponent<GameObjectEntityList>();
+            list=tile.AddComponent<GameTile>(); 
         }
+
+        if(tile.GetComponent<GameFillerTile>()){
+            Destroy(tile.GetComponent<GameFillerTile>());
+        }
+
+        list.x=x;
+        list.y=y;
 
         list.onAddEntity=delegate(GameEntity entity){
             onAddEntity(entity, x, y);
@@ -134,6 +167,16 @@ public abstract class GridBuilder : MonoBehaviour
         fillers.Add(new KeyValuePair<int, int>(x,y), tile);
     }
 
+    public List<GameTile> GetNeighborGameTiles(int x, int y){
+        List<GameTile> list=new List<GameTile>(); 
+        foreach(int[]  c in getTileNeighbors(x, y)){
+            if(HasTile(c[0], c[1])){
+                list.Add(GetTile(c[0], c[1]).GetComponent<GameTile>());
+            }
+        }
+        return list;
+    }
+
 
     List<int[]> GetNeighbors(int x, int y){
         return getTileNeighbors(x, y);
@@ -145,7 +188,7 @@ public abstract class GridBuilder : MonoBehaviour
     }
 
 
-    protected void SetActiveTile(GameObject tile){
+    public void SetActiveTile(GameObject tile){
         foreach(KeyValuePair<KeyValuePair<int, int>, GameObject> entry in fillers)
         {
             if(entry.Value==tile){
@@ -163,7 +206,7 @@ public abstract class GridBuilder : MonoBehaviour
         }
     }
 
-    protected void SetActiveTile(int x, int y){
+    public void SetActiveTile(int x, int y){
         if(!HasTile(x, y)){
 
             if(!HasFillerTile(x,y)){
@@ -182,19 +225,36 @@ public abstract class GridBuilder : MonoBehaviour
 
         if(activeTile!=null){
             onDeactivate(activeTile,x,y);
+            foreach(TileEvent listener in onDeactivateTileListeners){
+                listener(activeTile,x,y);
+            }
         }
         activeTile=tile;
+        activeTile.name="Tile: "+x+","+y;
         onActivate(activeTile,x,y);
+        foreach(TileEvent listener in onActivateTileListeners){
+            listener(activeTile,x,y);
+        }
         
         foreach(int[] t in GetNeighbors(x, y)){
 
 
 
             if(!ContainsTile(t[0], t[1])){
-                GameObject fillterTile=(GameObject)createFillerTile(t[0], t[1]); //, GetPosition(t[0], t[1]), Quaternion.identity);
-                fillterTile.transform.position=GetPosition(t[0], t[1]);
-                AddFiller(t[0], t[1], fillterTile);
-                onFill(fillterTile, t[0], t[1]);
+                GameObject fillerTile=(GameObject)createFillerTile(t[0], t[1]); //, GetPosition(t[0], t[1]), Quaternion.identity);
+
+                GameFillerTile f=fillerTile.GetComponent<GameFillerTile>();
+                if(f==null){
+                    f=fillerTile.AddComponent<GameFillerTile>();
+                }
+                f.x=t[0];
+                f.y=t[1];
+
+                fillerTile.transform.parent=transform;
+                fillerTile.transform.position=GetPosition(t[0], t[1]);
+                fillerTile.name="Filler: "+t[0]+","+t[1];
+                AddFiller(t[0], t[1], fillerTile);
+                onFill(fillerTile, t[0], t[1]);
             }
         }
 
@@ -204,6 +264,10 @@ public abstract class GridBuilder : MonoBehaviour
     GameObject GetTile(int x, int y){
         KeyValuePair<int, int> t=new KeyValuePair<int, int>(x,y);
         return grid[t];
+    }
+
+    public GameObject GetActiveTile(){
+        return activeTile;
     }
 
     bool HasTile(int x, int y){
