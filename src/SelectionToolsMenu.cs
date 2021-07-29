@@ -11,6 +11,7 @@ public class SelectionToolsMenu : MonoBehaviour
     public Button selectLookingAtBtn;
     public Button toggleRotatingBtn;
     public Button togglePositionBtn;
+    public Button toggleRigidBodyBtn;
 
     Selection selection;
     GridBuilder gridBuilder;
@@ -21,101 +22,217 @@ public class SelectionToolsMenu : MonoBehaviour
 
     List<DragMove> dragging=null;
     List<DragRotate> rotating=null;
+    List<Rigidbody> rigids=null;
+
+
+    List<Button> btns=new List<Button>();
+
 
     void Start()
     {
 
-        if(toggleRotatingBtn!=null){
 
-            toggleRotatingBtn.onClick.AddListener(delegate(){
-                ToggleRotateEntity();
-            });
-
-        }
-
-        if(togglePositionBtn!=null){
-
-            togglePositionBtn.onClick.AddListener(delegate(){
-                ToggleMoveEntity();
-            });
-            
-        }
-
+        
+        AddToggle(InitMoveButton());
+        AddToggle(InitGravityButton());
+        AddToggle(InitRotateButton());
 
 
         InitApplyButton();
+
+
+        if(Input.mousePresent){
+            MouseClick mouse=gameObject.AddComponent<MouseClick>();
+            mouse.onClick=delegate(){
+                ActivateLookingAt();
+            };
+        }else{
+            TouchTap touch= gameObject.AddComponent<TouchTap>();
+            touch.onTap=delegate(Touch touch){
+                ActivateLookingAt();
+            };
+        }
+
     }
 
 
-    void ToggleMoveEntity(){
+    void AddToggle(Button b){
 
-        if(rotating!=null){
-            ToggleRotateEntity();
-        }
-
-        if(dragging!=null){
-            foreach(DragMove drag in dragging){
-                Destroy(drag);
-            }
-            dragging=null;
+        if(b==null){
             return;
         }
-
-        dragging=new List<DragMove>();
-
-        if(selection!=null){
-            List<GameObject> list=selection.Get();
-            foreach(GameObject item in list){
-                if(item.GetComponent<GameEntity>()!=null){
-                    DragMove drag=item.AddComponent<DragMove>();
-                    dragging.Add(drag);
+        b.onClick.AddListener(delegate(){
+            b.GetComponent<SelectionToolBtn>().Toggle();
+            foreach(Button btn in btns){
+                if(btn!=b){
+                    btn.GetComponent<SelectionToolBtn>().Disable();
                 }
             }
-
-        }
-
-        if(dragging.Count==0){
-            dragging=null;
-        }
-
+        });
+        btns.Add(b);
 
     }
 
 
-    void ToggleRotateEntity(){
+    Button InitRotateButton(){
 
-        if(dragging!=null){
-            ToggleMoveEntity();
+
+        if(toggleRotatingBtn==null){
+            return null;
         }
 
-        if(rotating!=null){
-            foreach(DragRotate rot in rotating){
-                Destroy(rot);
+        
+     
+
+        toggleRotatingBtn.GetComponent<SelectionToolBtn>().enableFunction=delegate(){
+
+        
+            if(rotating!=null){
+                return true;
             }
-            rotating=null;
-            return;
-        }
 
-        rotating=new List<DragRotate>();
+            rotating=new List<DragRotate>();
 
-        if(selection!=null){
-            List<GameObject> list=selection.Get();
-            foreach(GameObject item in list){
-                if(item.GetComponent<GameEntity>()!=null){
-                    DragRotate rot=item.AddComponent<DragRotate>();
-                    rotating.Add(rot);
+            if(selection!=null){
+                List<GameObject> list=selection.Get();
+                foreach(GameObject item in list){
+                    if(item.GetComponent<GameEntity>()!=null){
+                        DragRotate rot=item.AddComponent<DragRotate>();
+                        rotating.Add(rot);
+                    }
                 }
+
             }
 
+            if(rotating.Count==0){
+                rotating=null;
+                return false;
+            }
+            return true;
+
+        };
+        toggleRotatingBtn.GetComponent<SelectionToolBtn>().disableFunction=delegate(){
+            if(rotating!=null){
+                foreach(DragRotate rot in rotating){
+                    Destroy(rot);
+                }
+                rotating=null;
+                
+            }
+            return true;
+        };
+            
+        
+
+        return toggleRotatingBtn;
+
+    }
+
+
+    Button InitMoveButton(){
+
+
+        if(togglePositionBtn==null){
+            return null;
         }
 
-        if(rotating.Count==0){
-            rotating=null;
-        }
+      
+
+        togglePositionBtn.GetComponent<SelectionToolBtn>().enableFunction=delegate(){
+
+            if(dragging!=null){
+                return true;
+            }
+
+            dragging=new List<DragMove>();
+
+            if(selection!=null){
+                List<GameObject> list=selection.Get();
+                foreach(GameObject item in list){
+                    if(item.GetComponent<GameEntity>()!=null){
+                        DragMove drag=item.AddComponent<DragMove>();
+                        dragging.Add(drag);
+                    }
+                }
+
+            }
+
+            if(dragging.Count==0){
+                dragging=null;
+                return false;
+            }
+            return true;
+
+
+
+        };
+        togglePositionBtn.GetComponent<SelectionToolBtn>().disableFunction=delegate(){
+            if(dragging!=null){
+                foreach(DragMove drag in dragging){
+                    Destroy(drag);
+                }
+                dragging=null;
+            }
+            return true;
+        };
+        
+    
+        return togglePositionBtn;
+
 
 
     }
 
+    Button InitGravityButton(){
+        if(toggleRigidBodyBtn==null){
+            return null;
+        }
+
+
+
+        toggleRigidBodyBtn.GetComponent<SelectionToolBtn>().enableFunction=delegate(){
+            if(rigids!=null){
+                return true;
+            }
+
+            rigids=new List<Rigidbody>();
+
+            if(selection!=null){
+                List<GameObject> list=selection.Get();
+                foreach(GameObject item in list){
+                    if(item.GetComponent<GameEntity>()!=null&&item.GetComponent<Rigidbody>()==null){
+                        Rigidbody rb=item.AddComponent<Rigidbody>();
+                        rb.useGravity=true;
+                        rigids.Add(rb);
+                    }
+                }
+
+            }
+
+            if(rigids.Count==0){
+                rigids=null;
+                return false;
+            }
+
+            return true;
+        };
+
+        toggleRigidBodyBtn.GetComponent<SelectionToolBtn>().disableFunction=delegate(){
+
+            if(rigids!=null){
+                foreach(Rigidbody rb in rigids){
+                    Destroy(rb);
+                }
+                rigids=null;
+            }
+
+            return true;
+        };
+
+
+        return toggleRigidBodyBtn;
+        
+    }
 
     // Update is called once per frame
     void Update()
@@ -144,7 +261,6 @@ public class SelectionToolsMenu : MonoBehaviour
         }
 
 
-        CheckMouseClick();
     }
 
 
@@ -163,18 +279,7 @@ public class SelectionToolsMenu : MonoBehaviour
 
     }
 
-    void CheckMouseClick(){
-
-        if(Input.GetMouseButtonDown(0)){
-            clickStart=Time.time;
-        }
-        if(Input.GetMouseButtonUp(0)&&Time.time-clickStart<0.3f&&Input.mousePresent){
-            // TODO: ensure single tap
-            // Note this is also triggered by touch tap which caused issues with TouchMovePan behavior
-            ActivateLookingAt();
-        }
-    }
-
+  
     void ActivateLookingAt(){
 
 

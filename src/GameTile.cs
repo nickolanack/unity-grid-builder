@@ -31,6 +31,7 @@ public class GameTile : MonoBehaviour
     public Vector3 terrainOffset=new Vector3(-5, 0.001f, -5);
 
 
+    public GameObject terrainTemplate;
 
     public void AddEntity(GameObject obj){
 
@@ -46,15 +47,30 @@ public class GameTile : MonoBehaviour
 
 
     void Update(){
-        Terrain[] terrain=gameObject.GetComponentsInChildren<Terrain>();
-        if(terrain.Length==0){
-            CreateTerrain();
+        Terrain[] currentTerrain=gameObject.GetComponentsInChildren<Terrain>(true);
+        if(currentTerrain.Length==0){
+
+
+            
+            GameObject terrain=null;
+            if(terrainTemplate!=null){
+                terrain=Instantiate(terrainTemplate);
+                terrain.SetActive(true);
+            }
+
+            if(terrain==null){
+                terrain=CreateBlankTerrain();
+            }
+
+            terrain.transform.parent = transform;
+            terrain.transform.localPosition = terrainOffset;
+            ConnectTerrain(terrain.GetComponent<Terrain>());
+
         }
     }
 
 
 
-      private static Vector2 tileAmount = Vector2.one;
    
     private float width  = 10;
     private float lenght = 10;
@@ -66,69 +82,65 @@ public class GameTile : MonoBehaviour
     private int controlTextureResolution    = 512;
     private int baseTextureReolution        = 1024;
 
-
-    private void CreateTerrain(){
+    private GameObject CreateBlankTerrain(){
  
-        for(int x0 = 1; x0 <= tileAmount.x; x0++){
-            for(int y0 = 1; y0 <= tileAmount.y; y0++){
-               
-                TerrainData terrainData = new TerrainData();
-               
-                // = (Alphabet)x;
-                string name = "tile-"+ x0 + "-" + y0;
+    
+        TerrainData terrainData = new TerrainData();
        
-                terrainData.size = new Vector3( width / 16f,
-                                                height,
-                                                lenght / 16f);
-               
-                terrainData.baseMapResolution = baseTextureReolution;
-                terrainData.heightmapResolution = heightmapResoltion;
-                terrainData.alphamapResolution = controlTextureResolution;
-                terrainData.SetDetailResolution(detailResolution, detailResolutionPerPatch);
- 
-                terrainData.name = name;
-                GameObject terrain = (GameObject)Terrain.CreateTerrainGameObject(terrainData);
+        // = (Alphabet)x;
+        string name = "terrain-"+ x + "-" + y;
 
-               
-                terrain.name = name;
-                terrain.transform.parent = transform;
-                terrain.transform.localPosition = terrainOffset;
- 
-                foreach(GameTile gt in GridBuilder.Main.GetNeighborGameTiles(x, y)){
+        terrainData.size = new Vector3(width / 16f, height, lenght / 16f);
+       
+        terrainData.baseMapResolution = baseTextureReolution;
+        terrainData.heightmapResolution = heightmapResoltion;
+        terrainData.alphamapResolution = controlTextureResolution;
+        terrainData.SetDetailResolution(detailResolution, detailResolutionPerPatch);
 
-                    Terrain nt=gt.gameObject.GetComponentInChildren<Terrain>();
-                    
-                    Terrain left=null;
-                    Terrain right=null;
-                    Terrain bottom=null;
-                    Terrain top=null;
+        terrainData.name = name;
+        GameObject terrain = (GameObject)Terrain.CreateTerrainGameObject(terrainData);
+        terrain.name = name;
 
-                    Terrain current=terrain.GetComponent<Terrain>();
-
-                    if(gt.x<x){
-                        left=nt;                     
-                    }
-                    if(gt.x>x){
-                        right=nt;
-                    }
-                    if(gt.y<y){
-                        bottom=nt;
-                    }
-                    if(gt.y>y){
-                        top=nt;
-                    }
-
-                    current.SetNeighbors (left, top, right, bottom);
-                    Terrain.SetConnectivityDirty();
-
-                }
-               
-            }
-        }
- 
- 
+       
+        return terrain;
        
     }
+
+    private void ConnectTerrain(Terrain current){
+
+        Terrain left=null;
+        Terrain right=null;
+        Terrain bottom=null;
+        Terrain top=null;
+
+        foreach(GameTile gt in GridBuilder.Main.GetNeighborGameTiles(x, y)){
+
+            Terrain nt=gt.gameObject.GetComponentInChildren<Terrain>();
+            
+           
+            if(gt.x<x){
+                left=nt;                     
+            }
+            if(gt.x>x){
+                right=nt;
+            }
+            if(gt.y<y){
+                bottom=nt;
+            }
+            if(gt.y>y){
+                top=nt;
+            }
     
+
+        }
+
+        current.SetNeighbors (left, top, right, bottom);
+        Terrain.SetConnectivityDirty();
+
+
+    }
+
+
+
 
 }

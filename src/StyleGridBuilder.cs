@@ -14,6 +14,8 @@ public class StyleGridBuilder : GridBuilder
     public Material tileMaterial;
     public Material fillerMaterial;
 
+    public GameObject terrainTemplate;
+
     public LookingAt lookAt;
     public HighlightSelectable selectable;
 
@@ -62,6 +64,7 @@ public class StyleGridBuilder : GridBuilder
         
         onActivate=delegate(GameObject tile, int x, int y){
             tile.GetComponent<Renderer>().material = activeMaterial;
+            tile.GetComponent<GameTile>().terrainTemplate=terrainTemplate;
         };
         onDeactivate=delegate(GameObject tile, int x, int y){
             tile.GetComponent<Renderer>().material = tileMaterial;
