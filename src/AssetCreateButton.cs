@@ -38,14 +38,14 @@ public class AssetCreateButton : MonoBehaviour
                 // rot.y=data["rotation"][1].ToObject<float>();
                 // rot.z=data["rotation"][2].ToObject<float>();
 
-                newAsset.transform.position=new Vector3(Random.Range(-1.0f, 1.0f), 6+Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, 1.0f));
+                newAsset.transform.position=Camera.main.transform.position + Camera.main.transform.forward*5 + new Vector3(Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, 1.0f));
                 
-                Rigidbody rb=newAsset.GetComponent<Rigidbody>();
-                if(rb==null){
-                    rb=newAsset.AddComponent<Rigidbody>();
-                }
-                rb.useGravity=true;
-                rb.velocity=new Vector3(Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, -15.0f), Random.Range(-1.0f, 1.0f));
+                // Rigidbody rb=newAsset.GetComponent<Rigidbody>();
+                // if(rb==null){
+                //     rb=newAsset.AddComponent<Rigidbody>();
+                // }
+                // rb.useGravity=true;
+                // rb.velocity=new Vector3(Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, -15.0f), Random.Range(-1.0f, 1.0f));
                 
 
                 GridBuilder.Main.AddEntity(newAsset, 0, 0);

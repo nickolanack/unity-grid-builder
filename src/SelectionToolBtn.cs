@@ -15,17 +15,17 @@ public class SelectionToolBtn : MonoBehaviour
     public Image sprite;
 
 
-    public bool enabled=false;
+    public bool active=false;
 
     public void Enable(){
-        if(enabled){
+        if(active){
             return;
         }
 
         bool success=enableFunction();
-        enabled=success;
+        active=success;
 
-        if(enabled){
+        if(active){
 
             if(sprite==null){
                 sprite=gameObject.GetComponent<Image>();
@@ -41,14 +41,14 @@ public class SelectionToolBtn : MonoBehaviour
     }
 
     public void Disable(){
-        if(!enabled){
+        if(!active){
             return;
         }
 
         bool success=disableFunction();
-        enabled=!success;
+        active=!success;
 
-        if(!enabled){
+        if(!active){
 
             if(sprite==null){
                 sprite=gameObject.GetComponent<Image>();
@@ -64,7 +64,7 @@ public class SelectionToolBtn : MonoBehaviour
     }
 
     public void Toggle(){
-        if(enabled){
+        if(active){
             Disable();
             return;
         }

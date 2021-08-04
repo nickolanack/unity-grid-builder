@@ -55,6 +55,14 @@ public class GameTile : MonoBehaviour
             GameObject terrain=null;
             if(terrainTemplate!=null){
                 terrain=Instantiate(terrainTemplate);
+
+                TerrainExport export=terrain.GetComponent<TerrainExport>();
+                if(export!=null){
+                    Destroy(export);
+                }
+
+
+                CopyTerrain(terrain.GetComponent<Terrain>(), terrainTemplate.GetComponent<Terrain>());
                 terrain.SetActive(true);
             }
 
@@ -74,13 +82,44 @@ public class GameTile : MonoBehaviour
    
     private float width  = 10;
     private float lenght = 10;
-    private float height = 600;
+    private float height = 100;
    
-    private int heightmapResoltion          = 513;
-    private int detailResolution            = 1024;
-    private int detailResolutionPerPatch    = 8;
+    private int heightmapResolution          = 513;
+    private int detailResolution            = 256;
+    private int detailResolutionPerPatch    = 32;
     private int controlTextureResolution    = 512;
-    private int baseTextureReolution        = 1024;
+    private int baseTextureResolution        = 1024;
+
+
+    private void CopyTerrain(Terrain instance, Terrain template){
+
+        TerrainData terrainData = new TerrainData();
+       
+        // = (Alphabet)x;
+        string name = "terrain-"+ x + "-" + y;
+
+
+        Vector3 size= template.terrainData.size/ 2f;
+        size.y*=2f;
+        terrainData.size=size;
+       
+        terrainData.baseMapResolution = template.terrainData.baseMapResolution;
+        terrainData.heightmapResolution = template.terrainData.heightmapResolution;
+        terrainData.alphamapResolution = template.terrainData.alphamapResolution;
+        terrainData.SetDetailResolution(template.terrainData.detailResolution, template.terrainData.detailResolutionPerPatch);
+
+        terrainData.wavingGrassSpeed = template.terrainData.wavingGrassSpeed;
+        terrainData.wavingGrassAmount = template.terrainData.wavingGrassAmount;
+        terrainData.wavingGrassStrength = template.terrainData.wavingGrassStrength;
+
+        terrainData.treePrototypes=template.terrainData.treePrototypes;
+        terrainData.terrainLayers=template.terrainData.terrainLayers;
+        terrainData.detailPrototypes=template.terrainData.detailPrototypes;
+        TerrainCollider collider=instance.gameObject.GetComponent<TerrainCollider>();
+        collider.terrainData=terrainData;
+        instance.terrainData=terrainData;
+
+    }
 
     private GameObject CreateBlankTerrain(){
  
@@ -90,12 +129,14 @@ public class GameTile : MonoBehaviour
         // = (Alphabet)x;
         string name = "terrain-"+ x + "-" + y;
 
-        terrainData.size = new Vector3(width / 16f, height, lenght / 16f);
+
+        terrainData.size = new Vector3(width / 8f, height, lenght / 8f);
        
-        terrainData.baseMapResolution = baseTextureReolution;
-        terrainData.heightmapResolution = heightmapResoltion;
+        terrainData.baseMapResolution = baseTextureResolution;
+        terrainData.heightmapResolution = heightmapResolution;
         terrainData.alphamapResolution = controlTextureResolution;
         terrainData.SetDetailResolution(detailResolution, detailResolutionPerPatch);
+        
 
         terrainData.name = name;
         GameObject terrain = (GameObject)Terrain.CreateTerrainGameObject(terrainData);
@@ -106,7 +147,7 @@ public class GameTile : MonoBehaviour
        
     }
 
-    private void ConnectTerrain(Terrain current){
+    private void ConnectTerrain(Terrain newTerrain){
 
         Terrain left=null;
         Terrain right=null;
@@ -119,22 +160,44 @@ public class GameTile : MonoBehaviour
             
            
             if(gt.x<x){
-                left=nt;                     
+                left=nt;    
+                left.SetNeighbors(left.leftNeighbor, left.topNeighbor, newTerrain, left.bottomNeighbor);    
+                Debug.Log("Connect new left:"+gt.x+", "+gt.y+ " of ("+x+","+y+")" );        
             }
             if(gt.x>x){
                 right=nt;
+                right.SetNeighbors(newTerrain, right.topNeighbor, right.rightNeighbor, right.bottomNeighbor);
+                Debug.Log("Connect new right:"+gt.x+", "+gt.y+ " of ("+x+","+y+")" );   
             }
             if(gt.y<y){
                 bottom=nt;
+                bottom.SetNeighbors(bottom.leftNeighbor, newTerrain, bottom.rightNeighbor, bottom.bottomNeighbor);
+                Debug.Log("Connect new  bottom:"+gt.x+", "+gt.y+ " of ("+x+","+y+")" );   
             }
             if(gt.y>y){
                 top=nt;
+                top.SetNeighbors(top.leftNeighbor, top.topNeighbor, top.rightNeighbor, newTerrain);
+                Debug.Log("Connect new top:"+gt.x+", "+gt.y+ " of ("+x+","+y+")" );   
             }
     
 
         }
 
-        current.SetNeighbors (left, top, right, bottom);
+        newTerrain.SetNeighbors(left, top, right, bottom);
+
+        if(left!=null&&(left.rightNeighbor!=newTerrain||newTerrain.leftNeighbor!=left)){
+            throw new Exception("Invalid assignment");
+        }
+        if(right!=null&&(right.leftNeighbor!=newTerrain||newTerrain.rightNeighbor!=right)){
+            throw new Exception("Invalid assignment");
+        }
+        if(top!=null&&(top.bottomNeighbor!=newTerrain||newTerrain.topNeighbor!=top)){
+            throw new Exception("Invalid assignment");
+        }
+        if(bottom!=null&&(bottom.topNeighbor!=newTerrain||newTerrain.bottomNeighbor!=bottom)){
+            throw new Exception("Invalid assignment");
+        }
+
         Terrain.SetConnectivityDirty();
 
 

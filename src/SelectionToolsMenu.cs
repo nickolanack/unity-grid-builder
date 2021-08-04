@@ -13,12 +13,14 @@ public class SelectionToolsMenu : MonoBehaviour
     public Button togglePositionBtn;
     public Button toggleRigidBodyBtn;
 
+    public Button togglePlayBtn;
+    public Button toggleBuildBtn;
+
     Selection selection;
     GridBuilder gridBuilder;
     LookingAt lookAt;
 
 
-    float clickStart=-1;
 
     List<DragMove> dragging=null;
     List<DragRotate> rotating=null;
@@ -45,11 +47,23 @@ public class SelectionToolsMenu : MonoBehaviour
             MouseClick mouse=gameObject.AddComponent<MouseClick>();
             mouse.onClick=delegate(){
                 ActivateLookingAt();
+                DecalClick(Input.mousePosition);
+                TerrainGridBuilder.main.DrawFeature(Input.mousePosition, gameObject.GetComponent<TerrainFeature>());
+                //TerrainGridBuilder.main.TerrainMakeTree(Input.mousePosition);
+                if(gameObject.GetComponent<TerrainExport>()!=null){
+                    //gameObject.GetComponent<TerrainExport>().ExportTerrain(Input.mousePosition);
+                }
             };
         }else{
             TouchTap touch= gameObject.AddComponent<TouchTap>();
             touch.onTap=delegate(Touch touch){
                 ActivateLookingAt();
+                DecalClick(touch.position);
+                TerrainGridBuilder.main.DrawFeature(touch.position, gameObject.GetComponent<TerrainFeature>());
+                //TerrainGridBuilder.main.TerrainMakeTree(touch.position);
+                if(gameObject.GetComponent<TerrainExport>()!=null){
+                    //gameObject.GetComponent<TerrainExport>().ExportTerrain(touch.position);
+                }
             };
         }
 
@@ -312,5 +326,81 @@ public class SelectionToolsMenu : MonoBehaviour
         }
 
     }
+
+
+
+    public GameObject decalPrefab;
+
+    void DecalClick(Vector2 pos){
+
+        Debug.Log("Decal");
+
+        RaycastHit hit;
+        Ray ray = Camera.main.ScreenPointToRay(pos);
+        
+        if (Physics.Raycast(ray, out hit)) {
+            
+            Quaternion q=Quaternion.LookRotation(hit.normal);
+            Debug.Log("Instantiate");
+            GameObject decal=Instantiate(decalPrefab, hit.point+(q*Vector3.forward*0.002f), q);
+            Quaternion.LookRotation(hit.normal);
+
+
+
+            Animation anim = decal.AddComponent<Animation>();
+            AnimationCurve curve;
+
+            // create a new AnimationClip
+            AnimationClip clip = new AnimationClip();
+            clip.legacy = true;
+
+            // create a curve to move the GameObject and assign to the clip
+            Keyframe[] keys;
+            keys = new Keyframe[3];
+            keys[0] = new Keyframe(0.0f, 0.01f);
+            keys[1] = new Keyframe(0.3f, 0.04f);
+            keys[2] = new Keyframe(0.4f, 0.03f);
+
+            foreach(string prop in new string[]{
+                "localScale.x","localScale.y","localScale.z"
+            }){
+
+                curve = new AnimationCurve(keys);
+                clip.SetCurve("", typeof(Transform), prop, curve);
+
+            }
+
+
+            keys = new Keyframe[2];
+            keys[0] = new Keyframe(0.0f, 1f);
+            keys[1] = new Keyframe(0.4f, 1f);
+
+            foreach(string prop in new string[]{
+              //  "m_Color.r", "m_Color.g", "m_Color.b"
+            }){
+
+                curve = new AnimationCurve(keys);
+                clip.SetCurve("", typeof(SpriteRenderer), prop, curve);
+
+            }
+
+            keys = new Keyframe[2];
+            keys[0] = new Keyframe(0.0f, 1f);
+            keys[1] = new Keyframe(0.4f, 0f);
+
+            
+            curve = new AnimationCurve(keys);
+            clip.SetCurve("", typeof(SpriteRenderer),  "m_Color.a", curve);
+
+            
+          
+            // now animate the GameObject
+            anim.AddClip(clip, clip.name);
+            anim.Play(clip.name);
+            Destroy(decal, 0.5f);
+        }
+    }
+
+
 
 }

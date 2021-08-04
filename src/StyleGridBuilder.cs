@@ -183,6 +183,11 @@ public class StyleGridBuilder : GridBuilder
 
                 lookAt.targetResolve=delegate(GameObject obj){
                     if(obj.GetComponent<Terrain>()!=null){
+
+                        if(obj.transform.parent==null){
+                            return null;
+                        }
+
                         return obj.transform.parent.gameObject;
                     }
                     return obj;
