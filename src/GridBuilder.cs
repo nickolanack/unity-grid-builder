@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
+using UnityEngine.Profiling;
+
 public abstract class GridBuilder : MonoBehaviour
 {
 
@@ -13,11 +15,14 @@ public abstract class GridBuilder : MonoBehaviour
     public GameObject templateTile;
     public GameObject activeTile=null;
 
+    public Vector3 terrainSize;
 
+
+    public Material dragMaterial;
 
     protected delegate Vector3 GetTilePosition(int x, int y);
     protected GetTilePosition getTilePosition=delegate(int x, int y){
-        return GridBuilder.Main.GetTile(0,0).transform.position+new Vector3(10*x, 0, 10*y);
+        return GridBuilder.Main.GetTile(0,0).transform.position+new Vector3(GridBuilder.Main.terrainSize.x*x, 0, GridBuilder.Main.terrainSize.z*y);
     };
 
 
@@ -103,6 +108,15 @@ public abstract class GridBuilder : MonoBehaviour
 
         templateTile.SetActive(false);
         AddTile(0,0, mainTile);
+
+
+        //SetActiveTile(0,0);
+
+        for(int y=0;y<5;y++){
+            for(int x=0;x<5;x++){
+               SetActiveTile(x,y);
+            }
+        }
         SetActiveTile(0,0);
 
     }
@@ -121,6 +135,20 @@ public abstract class GridBuilder : MonoBehaviour
 
     }
 
+    public void RemoveEntity(GameObject obj, int x, int y){
+
+        GameEntity entity=obj.GetComponent<GameEntity>();
+        if(entity==null){
+            throw new Exception("Expected GameObject Entity to be initialized with GameEntity MonoBehaviour");
+        }
+
+        GameObject tile=GetTile(x,y);
+        GameTile list=tile.GetComponent<GameTile>();
+        Debug.Log("Remove Entity: "+entity.entityId);
+        list.RemoveEntity(obj);
+
+    }
+
 
     public void OnActivateTile(TileEvent listener){
         onActivateTileListeners.Add(listener);
@@ -133,12 +161,42 @@ public abstract class GridBuilder : MonoBehaviour
 
     void AddTile(int x, int y, GameObject tile){
 
-        Debug.Log("Add Tile: "+x+" "+y);
+        //Debug.Log("Add Tile: "+x+" "+y);
 
         grid.Add(new KeyValuePair<int, int>(x,y), tile);
         GameTile list=tile.GetComponent<GameTile>();
         if(list==null){
             list=tile.AddComponent<GameTile>(); 
+            list.onCreateTerrain=delegate(Terrain t){
+
+
+
+                if(x==0&&y==0){
+                     TerrainEdit editor=new TerrainEdit();
+
+
+                     Vector3 pos=editor.AtCenter(t);
+
+                     editor.additive=true;
+                     editor.mergeHeight=false;
+
+                    Profiler.BeginSample("My Sample");
+                    Debug.Log("This code is being profiled");
+        
+
+                  
+                    editor.DrawTexture(pos, t, TerrainTexture.MakeTextureNoise(t));
+                    editor.DrawHeight(pos, t, TerrainTexture.MakeHeightNoise(t, 10));
+
+                    editor.DrawDetails(pos, t, TerrainTexture.MakeDetailNoise(t));
+
+                     Profiler.EndSample();
+
+                    Debug.Log("On Terrain");
+                }
+
+
+            };
         }
 
         if(tile.GetComponent<GameFillerTile>()){
@@ -212,7 +270,7 @@ public abstract class GridBuilder : MonoBehaviour
             if(!HasFillerTile(x,y)){
                 throw new Exception("Tile does not exist at "+x+", "+y);   
             }
-            Debug.Log("Commit filler tile");
+            //Debug.Log("Commit filler tile");
             CommitFillerTile(x, y);
         }
 
@@ -261,7 +319,7 @@ public abstract class GridBuilder : MonoBehaviour
 
     }
 
-    GameObject GetTile(int x, int y){
+    public GameObject GetTile(int x, int y){
         KeyValuePair<int, int> t=new KeyValuePair<int, int>(x,y);
         return grid[t];
     }
@@ -270,7 +328,7 @@ public abstract class GridBuilder : MonoBehaviour
         return activeTile;
     }
 
-    bool HasTile(int x, int y){
+    public bool HasTile(int x, int y){
         KeyValuePair<int, int> t=new KeyValuePair<int, int>(x,y);
         return grid.ContainsKey(t);
     }

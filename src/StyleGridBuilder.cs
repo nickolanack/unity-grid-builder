@@ -17,7 +17,7 @@ public class StyleGridBuilder : GridBuilder
     public GameObject terrainTemplate;
 
     public LookingAt lookAt;
-    public HighlightSelectable selectable;
+    public HighlightSelectableURP selectable;
 
 
     public Button applyButton;
@@ -46,6 +46,9 @@ public class StyleGridBuilder : GridBuilder
     protected override void Start()
     {
 
+        terrainSize=terrainTemplate.GetComponent<Terrain>().terrainData.size;
+
+
         /*
 
         var texture = new Texture2D(2, 2, TextureFormat.ARGB32, false);
@@ -63,8 +66,10 @@ public class StyleGridBuilder : GridBuilder
         */
         
         onActivate=delegate(GameObject tile, int x, int y){
+
+            GameTile gt=tile.GetComponent<GameTile>();
+            gt.terrainTemplate=terrainTemplate;
             tile.GetComponent<Renderer>().material = activeMaterial;
-            tile.GetComponent<GameTile>().terrainTemplate=terrainTemplate;
         };
         onDeactivate=delegate(GameObject tile, int x, int y){
             tile.GetComponent<Renderer>().material = tileMaterial;
@@ -123,16 +128,16 @@ public class StyleGridBuilder : GridBuilder
 
 
 
-        selectable=Camera.main.gameObject.AddComponent<HighlightSelectable>();
+        selectable=Camera.main.gameObject.AddComponent<HighlightSelectableURP>();
         
 
 
         base.Start();
 
 
-       taskEventQueueStream.Enqueue(new JToken[]{
-            JToken.Parse("{\"task\":\"create-entity\",\"tile\":[0,0],\"library\":\"cube\",\"asset\":\"assets/cubewhite.prefab\",\"id\":\"cube-01\",\"position\":[1.25895035,2.71713233,2.71713233],\"rotation\":[0.149460062,331.186768,331.186768]}")
-        });
+       // taskEventQueueStream.Enqueue(new JToken[]{
+       //      JToken.Parse("{\"task\":\"create-entity\",\"tile\":[0,0],\"library\":\"cube\",\"asset\":\"assets/cubewhite.prefab\",\"id\":\"cube-01\",\"position\":[1.25895035,2.71713233,2.71713233],\"rotation\":[0.149460062,331.186768,331.186768]}")
+       //  });
 
 
     }
@@ -164,6 +169,7 @@ public class StyleGridBuilder : GridBuilder
 
             JToken[] data=taskEventQueueStream.Dequeue();
             handlingEvent=true;
+            Debug.Log(data[0]);
             HandleEventTask(data[0]["task"].ToObject<string>(), data[0]["tile"][0].ToObject<int>(), data[0]["tile"][1].ToObject<int>(), data[0]);
             handlingEvent=false;
         }
@@ -212,6 +218,10 @@ public class StyleGridBuilder : GridBuilder
         }
 
         if(task.Equals("create-entity")){
+
+            if(data["library"]==null){
+                return;
+            }
 
             string bundle=data["library"].ToObject<string>();
             string asset=data["asset"].ToObject<string>();

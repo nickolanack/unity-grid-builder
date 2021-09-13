@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class SelectionToolsMenu : MonoBehaviour
 {
@@ -12,6 +13,8 @@ public class SelectionToolsMenu : MonoBehaviour
     public Button toggleRotatingBtn;
     public Button togglePositionBtn;
     public Button toggleRigidBodyBtn;
+
+    public Button eventDeleteBtn;
 
     public Button togglePlayBtn;
     public Button toggleBuildBtn;
@@ -30,10 +33,15 @@ public class SelectionToolsMenu : MonoBehaviour
     List<Button> btns=new List<Button>();
 
 
+    public bool preventClickThrough=false;
+
+    public static SelectionToolsMenu ToolsMenu;
+
+
     void Start()
     {
 
-
+        ToolsMenu=this;
         
         AddToggle(InitMoveButton());
         AddToggle(InitGravityButton());
@@ -41,49 +49,76 @@ public class SelectionToolsMenu : MonoBehaviour
 
 
         InitApplyButton();
+        InitDeleteButton();
 
 
         if(Input.mousePresent){
             MouseClick mouse=gameObject.AddComponent<MouseClick>();
             mouse.onClick=delegate(){
-                ActivateLookingAt();
-                DecalClick(Input.mousePosition);
-                TerrainGridBuilder.main.DrawFeature(Input.mousePosition, gameObject.GetComponent<TerrainFeature>());
-                //TerrainGridBuilder.main.TerrainMakeTree(Input.mousePosition);
-                if(gameObject.GetComponent<TerrainExport>()!=null){
-                    //gameObject.GetComponent<TerrainExport>().ExportTerrain(Input.mousePosition);
-                }
+                HandleTouch(Input.mousePosition);
             };
         }else{
             TouchTap touch= gameObject.AddComponent<TouchTap>();
             touch.onTap=delegate(Touch touch){
-                ActivateLookingAt();
-                DecalClick(touch.position);
-                TerrainGridBuilder.main.DrawFeature(touch.position, gameObject.GetComponent<TerrainFeature>());
-                //TerrainGridBuilder.main.TerrainMakeTree(touch.position);
-                if(gameObject.GetComponent<TerrainExport>()!=null){
-                    //gameObject.GetComponent<TerrainExport>().ExportTerrain(touch.position);
-                }
+                HandleTouch(touch.position);
             };
         }
 
     }
 
+    void HandleTouch(Vector2 pos){
+        if(preventClickThrough||EventSystem.current.currentSelectedGameObject!=null){
+            return;
+        }
+        ActivateLookingAt();
+        DecalClick(pos);
+        GetComponent<TerrainFeature>().DrawFeature(pos);
+        // if(gameObject.GetComponent<TerrainExport>()!=null){
+        //     //gameObject.GetComponent<TerrainExport>().ExportTerrain(touch.position);
+        // }
+    }
+
+
+
+
+
+    void AddButton(Button b){
+
+        b.onClick.AddListener(delegate(){
+            preventClickThrough=true;
+            CancelInvoke("ClearPreventClickThrough");
+            Invoke("ClearPreventClickThrough", 0.2f);
+        });
+
+
+        btns.Add(b);
+    }
+
+    void ClearPreventClickThrough(){
+         preventClickThrough=false;
+    }
 
     void AddToggle(Button b){
 
         if(b==null){
             return;
         }
+
         b.onClick.AddListener(delegate(){
-            b.GetComponent<SelectionToolBtn>().Toggle();
+
+            Debug.Log("Toggle Btn");
+
+            b.GetComponent<UIActionBtn
+>().Toggle();
             foreach(Button btn in btns){
                 if(btn!=b){
-                    btn.GetComponent<SelectionToolBtn>().Disable();
+                    btn.GetComponent<UIActionBtn
+>().Disable();
                 }
             }
         });
-        btns.Add(b);
+        AddButton(b);
+        
 
     }
 
@@ -98,7 +133,8 @@ public class SelectionToolsMenu : MonoBehaviour
         
      
 
-        toggleRotatingBtn.GetComponent<SelectionToolBtn>().enableFunction=delegate(){
+        toggleRotatingBtn.GetComponent<UIActionBtn
+>().enableFunction=delegate(){
 
         
             if(rotating!=null){
@@ -111,7 +147,13 @@ public class SelectionToolsMenu : MonoBehaviour
                 List<GameObject> list=selection.Get();
                 foreach(GameObject item in list){
                     if(item.GetComponent<GameEntity>()!=null){
-                        DragRotate rot=item.AddComponent<DragRotate>();
+
+                        if(item.GetComponent<GameAlign>()!=null){
+                            rotating.Add(item.GetComponent<GameAlign>().EnableRotating());
+                            continue;
+                        }
+
+                        DragRotate rot=item.AddComponent<DragRotateSnap>();
                         rotating.Add(rot);
                     }
                 }
@@ -125,9 +167,20 @@ public class SelectionToolsMenu : MonoBehaviour
             return true;
 
         };
-        toggleRotatingBtn.GetComponent<SelectionToolBtn>().disableFunction=delegate(){
+        toggleRotatingBtn.GetComponent<UIActionBtn
+>().disableFunction=delegate(){
             if(rotating!=null){
                 foreach(DragRotate rot in rotating){
+
+                    if(rot==null){
+                        continue;
+                    }
+
+                    if(rot.GetComponent<GameAlign>()!=null){
+                        rot.GetComponent<GameAlign>().DisableRotating();
+                        continue;
+                    }
+
                     Destroy(rot);
                 }
                 rotating=null;
@@ -152,7 +205,8 @@ public class SelectionToolsMenu : MonoBehaviour
 
       
 
-        togglePositionBtn.GetComponent<SelectionToolBtn>().enableFunction=delegate(){
+        togglePositionBtn.GetComponent<UIActionBtn
+>().enableFunction=delegate(){
 
             if(dragging!=null){
                 return true;
@@ -164,7 +218,13 @@ public class SelectionToolsMenu : MonoBehaviour
                 List<GameObject> list=selection.Get();
                 foreach(GameObject item in list){
                     if(item.GetComponent<GameEntity>()!=null){
-                        DragMove drag=item.AddComponent<DragMove>();
+
+                        if(item.GetComponent<GameAlign>()!=null){
+                            dragging.Add(item.GetComponent<GameAlign>().EnableDragging());
+                            continue;
+                        }
+
+                        DragMove drag=item.AddComponent<DragMoveSnap>();
                         dragging.Add(drag);
                     }
                 }
@@ -180,9 +240,20 @@ public class SelectionToolsMenu : MonoBehaviour
 
 
         };
-        togglePositionBtn.GetComponent<SelectionToolBtn>().disableFunction=delegate(){
+        togglePositionBtn.GetComponent<UIActionBtn
+>().disableFunction=delegate(){
             if(dragging!=null){
                 foreach(DragMove drag in dragging){
+
+                    if(drag==null){
+                        continue;
+                    }
+
+                    if(drag.GetComponent<GameAlign>()!=null){
+                        drag.GetComponent<GameAlign>().DisableDragging();
+                        continue;
+                    }
+
                     Destroy(drag);
                 }
                 dragging=null;
@@ -197,6 +268,43 @@ public class SelectionToolsMenu : MonoBehaviour
 
     }
 
+
+    Button InitDeleteButton(){
+        if(eventDeleteBtn==null){
+            return null;
+        }
+
+
+         eventDeleteBtn.GetComponent<UIActionBtn
+>().enableFunction=delegate(){
+
+            Debug.Log("Press Delete");
+
+            if(selection!=null){
+                List<GameObject> list=selection.Get();
+                foreach(GameObject item in list){
+                    if(item.GetComponent<GameEntity>()!=null){
+                        Debug.Log("Delete GameEntity");
+                        item.GetComponent<GameEntity>().DestroySelf();
+                    }
+                }
+
+            }
+
+            return false; 
+
+        };
+
+        eventDeleteBtn.onClick.AddListener(delegate(){
+            eventDeleteBtn.GetComponent<UIActionBtn
+>().Toggle();
+        });
+
+        return eventDeleteBtn;
+
+
+    }
+
     Button InitGravityButton(){
         if(toggleRigidBodyBtn==null){
             return null;
@@ -204,7 +312,8 @@ public class SelectionToolsMenu : MonoBehaviour
 
 
 
-        toggleRigidBodyBtn.GetComponent<SelectionToolBtn>().enableFunction=delegate(){
+        toggleRigidBodyBtn.GetComponent<UIActionBtn
+>().enableFunction=delegate(){
             if(rigids!=null){
                 return true;
             }
@@ -216,7 +325,9 @@ public class SelectionToolsMenu : MonoBehaviour
                 foreach(GameObject item in list){
                     if(item.GetComponent<GameEntity>()!=null&&item.GetComponent<Rigidbody>()==null){
                         Rigidbody rb=item.AddComponent<Rigidbody>();
+                        rb.isKinematic=true;
                         rb.useGravity=true;
+                        rb.isKinematic=false;
                         rigids.Add(rb);
                     }
                 }
@@ -231,7 +342,8 @@ public class SelectionToolsMenu : MonoBehaviour
             return true;
         };
 
-        toggleRigidBodyBtn.GetComponent<SelectionToolBtn>().disableFunction=delegate(){
+        toggleRigidBodyBtn.GetComponent<UIActionBtn
+>().disableFunction=delegate(){
 
             if(rigids!=null){
                 foreach(Rigidbody rb in rigids){
@@ -248,14 +360,37 @@ public class SelectionToolsMenu : MonoBehaviour
         
     }
 
+
+    void OnSelectionChanged(List<GameObject> selection){
+
+        foreach(Button b in btns){
+
+            UIActionBtn
+ btn=b.GetComponent<UIActionBtn
+>();
+
+            if(btn.active){
+                btn.Disable();
+                btn.Enable(); //Reapply to to active
+                
+            }
+
+           
+        }
+
+
+    }
+
+
+
     // Update is called once per frame
     void Update()
     {
         if(selection==null){
             selection=gameObject.GetComponent<Selection>();
             if(selection!=null){
-                selection.OnSelectionChanged(delegate(List<GameObject>selection){
-
+                selection.OnSelectionChanged(delegate(List<GameObject> selection){
+                    OnSelectionChanged(selection);
                 });
             }
         }
@@ -319,6 +454,24 @@ public class SelectionToolsMenu : MonoBehaviour
                 List<GameObject> list=new List<GameObject>();
                 list.Add(gridBuilder.GetActiveTile());
                 list.Add(lookAt.lookingAt);
+
+                if(selection.IsAlreadySelected(list)){
+
+                    if(lookAt.lookingAt.GetComponent<GameAlign>()!=null){
+                        SnapGuide.SnapObject snap=lookAt.lookingAt.GetComponent<GameAlign>().CheckEdgeClick();
+
+                        if(snap.itemA!=null){
+
+                            gameObject.GetComponent<TerrainFeature>().DrawObject(snap.center, delegate(GameObject asset){
+
+                            });
+                        }
+                        
+                    }
+
+                    return;
+                }
+
                 selection.SetSelected(list);
 
             }
@@ -330,75 +483,8 @@ public class SelectionToolsMenu : MonoBehaviour
 
 
     public GameObject decalPrefab;
-
     void DecalClick(Vector2 pos){
-
-        Debug.Log("Decal");
-
-        RaycastHit hit;
-        Ray ray = Camera.main.ScreenPointToRay(pos);
-        
-        if (Physics.Raycast(ray, out hit)) {
-            
-            Quaternion q=Quaternion.LookRotation(hit.normal);
-            Debug.Log("Instantiate");
-            GameObject decal=Instantiate(decalPrefab, hit.point+(q*Vector3.forward*0.002f), q);
-            Quaternion.LookRotation(hit.normal);
-
-
-
-            Animation anim = decal.AddComponent<Animation>();
-            AnimationCurve curve;
-
-            // create a new AnimationClip
-            AnimationClip clip = new AnimationClip();
-            clip.legacy = true;
-
-            // create a curve to move the GameObject and assign to the clip
-            Keyframe[] keys;
-            keys = new Keyframe[3];
-            keys[0] = new Keyframe(0.0f, 0.01f);
-            keys[1] = new Keyframe(0.3f, 0.04f);
-            keys[2] = new Keyframe(0.4f, 0.03f);
-
-            foreach(string prop in new string[]{
-                "localScale.x","localScale.y","localScale.z"
-            }){
-
-                curve = new AnimationCurve(keys);
-                clip.SetCurve("", typeof(Transform), prop, curve);
-
-            }
-
-
-            keys = new Keyframe[2];
-            keys[0] = new Keyframe(0.0f, 1f);
-            keys[1] = new Keyframe(0.4f, 1f);
-
-            foreach(string prop in new string[]{
-              //  "m_Color.r", "m_Color.g", "m_Color.b"
-            }){
-
-                curve = new AnimationCurve(keys);
-                clip.SetCurve("", typeof(SpriteRenderer), prop, curve);
-
-            }
-
-            keys = new Keyframe[2];
-            keys[0] = new Keyframe(0.0f, 1f);
-            keys[1] = new Keyframe(0.4f, 0f);
-
-            
-            curve = new AnimationCurve(keys);
-            clip.SetCurve("", typeof(SpriteRenderer),  "m_Color.a", curve);
-
-            
-          
-            // now animate the GameObject
-            anim.AddClip(clip, clip.name);
-            anim.Play(clip.name);
-            Destroy(decal, 0.5f);
-        }
+        (new Decal()).Display(pos, decalPrefab);
     }
 
 

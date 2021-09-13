@@ -28,5 +28,16 @@ public class GameEntity : MonoBehaviour
     }
 
 
+
+    public void DestroySelf(){
+        if(builder==null){
+            builder=GridBuilder.Main;
+        }
+
+        builder.RemoveEntity(gameObject, x, y);
+        Destroy(gameObject);
+    }
+
+
    
 }
